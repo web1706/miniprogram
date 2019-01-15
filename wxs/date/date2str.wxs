@@ -1,0 +1,157 @@
+/**
+ * 日期字符串中的特殊关键词，可根据需要进行修改
+ *
+ * 默认支持的关键词有：
+ *
+ * - `YYYY` 年份
+ * - `mm`   月份（补全2位）
+ * - `m`    月份
+ * - `dd`   日（补全2位）
+ * - `d`    日
+ * - `HH`   小时（补全2位）
+ * - `H`    小时
+ * - `ii`   分（补全2位）
+ * - `i`    分
+ * - `ss`   秒（补全2位）
+ * - `s`    秒
+ * - `EEE`  星期
+ *
+ * @type {Keyword[]}
+ *
+ * @typedef Keyword
+ * @type {object}
+ * @property {string} from 要匹配的关键词
+ * @property {(date: Date) => string} to 此函数返回的字符串用于替换关键词
+ */
+var keywords = [
+  {
+    // 年份
+    from: 'YYYY',
+    to: function (date) {
+      return date.getFullYear().toFixed()
+    }
+  },
+  {
+    // 月份（2位）
+    from: 'mm',
+    to: function (date) {
+      return ((date.getMonth() + 101).toFixed().slice(1))
+    }
+  },
+  {
+    // 月份
+    from: 'm',
+    to: function (date) {
+      return date.getMonth() + 1
+    }
+  },
+  {
+    // 日（2位）
+    from: 'dd',
+    to: function (date) {
+      return ((date.getDate() + 100).toFixed().slice(1))
+    }
+  },
+  {
+    // 日
+    from: 'd',
+    to: function (date) {
+      return date.getDate().toFixed()
+    }
+  },
+  {
+    // 小时（2位）
+    from: 'HH',
+    to: function (date) {
+      return ((date.getHours() + 100).toFixed().slice(1))
+    }
+  },
+  {
+    // 小时
+    from: 'H',
+    to: function (date) {
+      return date.getHours().toFixed()
+    }
+  },
+  {
+    // 分（2位）
+    from: 'ii',
+    to: function (date) {
+      return ((date.getMinutes() + 100).toFixed().slice(1))
+    }
+  },
+  {
+    // 分
+    from: 'i',
+    to: function (date) {
+      return date.getMinutes().toFixed()
+    }
+  },
+  {
+    // 秒（2位）
+    from: 'ss',
+    to: function (date) {
+      return ((date.getSeconds() + 100).toFixed().slice(1))
+    }
+  },
+  {
+    // 秒
+    from: 's',
+    to: function (date) {
+      return date.getSeconds().toFixed()
+    }
+  },
+  {
+    // 星期
+    from: 'EEE',
+    to: function (date) {
+      return [
+        '星期日',
+        '星期一',
+        '星期二',
+        '星期三',
+        '星期四',
+        '星期五',
+        '星期六'
+      ][date.getDay()]
+    }
+  }
+]
+
+/**
+ * 将日期格式化为字符串
+ * @param {string} format 要生成的字符串的模板
+ * @param {Date} date 日期，Date对象
+ */
+module.exports = function date2str(format, date) {
+  // 关键词按从长到短排列
+  keywords.sort(
+    function (item1, item2) {
+      return item1.from > item2.from ? -1 : 1
+    }
+  )
+  // 要生成的字符串
+  var str = ''
+  while (format.length > 0) {
+    // 查找关键词
+    var key, fn
+    var found = keywords
+      .some(function (item) {
+        if (format.indexOf(item.from) === 0) {
+          key = item.from
+          fn = item.to
+          return true
+        }
+        return false
+      })
+    // 填充格式化字符串
+    if (found) {
+      str += fn(date)
+      format = format.slice(key.length)
+    } else {
+      str += format[0]
+      format = format.slice(1)
+    }
+  }
+  return str
+}

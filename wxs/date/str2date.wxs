@@ -1,0 +1,60 @@
+/**
+ * 日期字符串转化成Date对象的规则
+ * @type {Rule[]}
+ *
+ * @typedef Rule
+ * @type {object}
+ * @property {string} regexp 正则表达式，用于匹配日期字符串
+ * @property {(str: string) => Date} transform 转换函数，用于将匹配的日期字符串转换成Date对象
+ */
+var rules = [
+  {
+    /**
+     * 此正则匹配以下字符串：
+     *
+     * - `2018-12`
+     * - `2018-12-28`
+     * - `2018-12-28 14:17`
+     * - `2018-12-28 14:17:17`
+     * - `2018-12-28 14:17:17.2`
+     * - `2018-12-28 14:17:17.23`
+     * - `2018-12-28 14:17:17.233`
+     * - `2018/12`
+     * - `2018/12/28`
+     * - `2018/12/28 14:17`
+     * - `2018/12/28 14:17:17`
+     * - `2018/12/28 14:17:17.2`
+     * - `2018/12/28 14:17:17.23`
+     * - `2018/12/28 14:17:17.233`
+     */
+    regexp: '^(\d{4}\-\d{2}(\-\d{2})?|\d{4}\/\d{2}(\/\d{2})?)( \d{2}:\d{2}(:\d{2}(\.\d\d?\d?)?)?)?$',
+    transform: function (str) {
+      var year = str.slice(0, 4) * 1
+      var month = str.slice(5, 7) - 1
+      var date = str.slice(8, 10) * 1
+      var hours = str.slice(11, 13) * 1
+      var minutes = str.slice(14, 16) * 1
+      var seconds = str.slice(17, 19) * 1
+      var milliseconds = (str[20] || 0) * 100 + (str[21] || 0) * 10 + (str[22] || 0) * 1
+      return getDate(year, month, date, hours, minutes, seconds, milliseconds)
+    }
+  }
+]
+
+/**
+ * 将日期字符串转化成Date对象
+ * @param {string} str 日期字符串
+ * @returns {Date}
+ */
+module.exports = function str2date(str) {
+  var date
+  rules.some(function (rule) {
+    var regexp = getRegExp(rule.regexp)
+    if (regexp.test(str)) {
+      date = getDate(rule.transform(str))
+      return true
+    }
+    return false
+  })
+  return date || getDate(str)
+}

@@ -1,0 +1,33 @@
+/**
+ * 日期格式化函数，用于将日期转换成特定格式的字符串
+ * @copyright web1706 2018
+ * @author cxy930123 <mail@xingyu1993.cn>
+ * @license MIT
+ * @see {@link https://github.com/web1706/miniprogram/blob/master/wxs/date/README.md}
+ * @example
+ * <wxs src="./fakepath/date.wxs" module="date" />
+ * <view>当前日期：{{date('YYYY-mm-dd HH:ii:ss EEE')}}</view>
+ * <view>指定日期：{{date('YYYY-mm-dd HH:ii:ss EEE', 1545898539455)}}</view>
+**/
+
+var str2date = require('./str2date.wxs')
+var date2str = require('./date2str.wxs')
+
+/**
+ * 格式化日期值
+ * @param {string} format 要生成的字符串的模板
+ * @param {Date|string|number} [date] 日期表达式，Date对象、时间戳或表示时间的字符串，不传则使用当前时间
+ * @returns {string}
+ */
+module.exports = function (format, date) {
+  // 获取日期
+  if (typeof date === 'string') {
+    date = str2date(date)
+  } else if (date) {
+    date = getDate(date)
+  } else {
+    date = getDate()
+  }
+  // 生成日期字符串
+  return date2str(format, date)
+}

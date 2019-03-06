@@ -144,21 +144,25 @@ const replace = (url, data) => new Promise(
   (resolve, reject) => {
     // 检查锁状态
     if (locked) throw new Error('fail operation too frequent')
-    // 获取父页面
+    // 获取父页面和当前页面
     const pages = getCurrentPages();
-    const parent = pages.length > 0 ? pages.slice(-2)[0] : forwardMap
+    if (pages.length === 0) {
+      throw new Error('fail page not ready')
+    }
+    const parent = pages.length > 1 ? pages.slice(-2)[0] : forwardMap
+    const page = pages.slice(-1)[0]
     // 备份从父页面传递过来的数据
     const $data = forwardMap.get(parent)
     // 设置传给目标页面的数据
     forwardMap.set(parent, data)
     // 加锁
     locked = true
-    // 页面卸载后解锁
-    const onUnload = this.onUnload
-    this.onUnload = () => {
+    // 当前页面卸载后解锁
+    const onUnload = page.onUnload
+    page.onUnload = () => {
       locked = false
-      this.onUnload = onUnload
-      this.onUnload()
+      page.onUnload = onUnload
+      page.onUnload()
     }
     // 跳转
     wx.redirectTo({
@@ -166,7 +170,7 @@ const replace = (url, data) => new Promise(
       success: resolve,
       fail: (err) => {
         forwardMap.set(parent, $data)
-        this.onUnload = onUnload
+        page.onUnload = onUnload
         reject(err)
       }
     })

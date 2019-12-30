@@ -66,6 +66,8 @@ function mergeObject(obj1, obj2) {
   return obj1
 }
 
+const mergedMixins = new Set()
+
 /**
  * 合并两个配置项
  */
@@ -78,26 +80,31 @@ function mergeOptions(options, mixin) {
   for (const key in mixin) {
     if (mixin.hasOwnProperty(key)) {
       if (whitelist.has(key)) {
-        const fn0 = options[key]
-        const fn1 = mixin[key]
-        options[key] = function () {
-          if (typeof fn0 === 'function') fn0.apply(this, arguments)
-          if (typeof fn1 === 'function') fn1.apply(this, arguments)
+        if (!mergedMixins.has(mixin)) {
+          const fn0 = options[key]
+          const fn1 = mixin[key]
+          options[key] = function () {
+            if (typeof fn0 === 'function') fn0.apply(this, arguments)
+            if (typeof fn1 === 'function') fn1.apply(this, arguments)
+          }
         }
       } else {
         options[key] = mergeObject(options[key], mixin[key])
       }
     }
   }
+  mergedMixins.add(mixin)
   return options
 }
 
 const newPage = function Page(options, ...args) {
   const mixins = globalMixins.concat(options)
   options = {}
+  mergedMixins.clear()
   for (const mixin of mixins) {
     options = mergeOptions(options, mixin)
   }
+  mergedMixins.clear()
   return oldPage.call(this, options, ...args)
 }
 

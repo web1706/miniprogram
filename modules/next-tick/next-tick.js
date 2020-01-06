@@ -4,7 +4,7 @@
  * @copyright web1706 2019
  * @author cxy930123 <mail@xingyu1993.cn>
  * @license MIT
- * @version 1.0.0
+ * @version 1.0.1
  * @see {@link https://github.com/web1706/miniprogram/blob/master/modules/next-tick/README.md}
  *
  * 此模块导出以下内容：
@@ -61,6 +61,9 @@ function nextTick(cb, ctx) {
   }
 }
 
+let pendingData = {}
+let keyMap = {}
+
 /**
  * 解析路径到数组
  * @param {string} path 完整路径
@@ -79,36 +82,108 @@ function parse(path) {
 }
 
 /**
- * 读取或设置对象深层路径的值
- * @param {object} data 最外层对象
- * @param {string} path 路径
- * @param {any} [value] 写入的值（不传为读取值）
- * @returns {any} 读取到的值
+ * 清理对象中以特定路径开头的属性
+ * @param {object} data 要清理的对象
+ * @param {string} prefix 要清理的路径
+ * @returns {void}
  */
-function value(data, path, value) {
-  const isRead = typeof value === 'undefined'
-  const keys = parse(path)
-  if (isRead) {
-    return keys
-      .reduce((o, key) => {
-        try {
-          return o[key]
-        } catch (err) {
-          return void 0
+function clean(data, prefix) {
+  for (const key in data) {
+    if (data.hasOwnProperty(key)) {
+      if (key.startsWith(prefix)) {
+        if (key.startsWith(prefix + '.')) {
+          delete data[key]
         }
-      }, data)
-  }
-  for (const [i, key] of keys.entries()) {
-    if (typeof keys[i + 1] === 'undefined') {
-      data[key] = value
-    } else if (typeof keys[i + 1] === 'number') {
-      if (!Array.isArray(data[key])) {
-        data[key] = []
+        if (key.startsWith(prefix + '[')) {
+          delete data[key]
+        }
       }
-    } else if (!data[key] || typeof data[key] !== 'object') {
-      data[key] = {}
     }
-    data = data[key]
+  }
+}
+
+/**
+ * 设置对象深层路径的值
+ * @param {object} data 最外层对象
+ * @param {string} path 写入的路径
+ * @param {any} value 写入的值
+ * @returns {void}
+ */
+function batch(data, path, value) {
+  const keys = parse(path)
+  let keyData = data
+  // 设置data对象中对应路径的值
+  for (const [i, key] of keys.entries()) {
+    switch (typeof keys[i + 1]) {
+      case 'undefined':
+        keyData[key] = value
+        break
+      case 'string':
+        if (!keyData[key] || typeof keyData[key] !== 'object') {
+          keyData[key] = {}
+        }
+        break
+      case 'number':
+        if (!Array.isArray(keyData[key])) {
+          keyData[key] = []
+        }
+        break
+    }
+    keyData = keyData[key]
+  }
+  // 更新pendingData和keyMap的值
+  let currentPath = ''
+  let mapData = keyMap
+  keyData = data
+  for (const [i, key] of keys.entries()) {
+    if (i === 0) {
+      currentPath = key
+    } else if (typeof key === 'string') {
+      currentPath += `.${key}`
+    } else if (typeof key === 'number') {
+      currentPath += `[${key}]`
+    }
+    switch (typeof keys[i + 1]) {
+      case 'undefined':
+        if (typeof mapData[key] === 'object') {
+          clean(pendingData, currentPath)
+        }
+        mapData[key] = true
+        pendingData[path] = value
+        break
+      case 'string':
+        if (Array.isArray(mapData[key])) {
+          clean(pendingData, currentPath)
+          mapData[key] = true
+          pendingData[currentPath] = keyData[key]
+          return
+        }
+        if (mapData[key] === true) {
+          pendingData[currentPath] = keyData[key]
+          return
+        }
+        if (typeof mapData[key] === 'undefined') {
+          mapData[key] = {}
+        }
+        break
+      case 'number':
+        if (typeof mapData[key] === 'object' && !Array.isArray(mapData[key])) {
+          clean(pendingData, currentPath)
+          mapData[key] = true
+          pendingData[currentPath] = keyData[key]
+          return
+        }
+        if (mapData[key] === true) {
+          pendingData[currentPath] = keyData[key]
+          return
+        }
+        if (typeof mapData[key] === 'undefined') {
+          mapData[key] = []
+        }
+        break
+    }
+    mapData = mapData[key]
+    keyData = keyData[key]
   }
 }
 
@@ -118,27 +193,22 @@ function value(data, path, value) {
  * @returns {function} 优化后的`setData`函数
  */
 function replaceSetData(setData) {
-  const paths = new Set()
   const callbacks = []
   let needUpdate = false
   const update = function update() {
     needUpdate = false
-    const data = {}
-    paths.forEach(path => {
-      data[path] = value(this.data, path)
-    })
     const cbs = callbacks.slice()
-    setData.call(this, data, function() {
+    callbacks.length = 0
+    setData.call(this, pendingData, function() {
       cbs.forEach(cb => cb.apply(this, arguments))
     })
-    paths.clear()
-    callbacks.length = 0
+    pendingData = {}
+    keyMap = {}
   }
   return function(data, callback) {
     for (const path in data) {
       if (data.hasOwnProperty(path)) {
-        paths.add(path)
-        value(this.data, path, data[path])
+        batch(this.data, path, data[path])
       }
     }
     if (typeof callback === 'function') {
